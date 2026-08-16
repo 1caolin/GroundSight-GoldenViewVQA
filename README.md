@@ -62,7 +62,6 @@ The pipeline is entirely inference-time: it uses no task-specific fine-tuning an
 │   └── claude_stage3_selected.jsonl
 │                                  # 15 Stage 3 selected corrections and audits
 ├── method.png                    # Pipeline overview
-├── CoVeR-VQA.pdf                 # System paper
 └── README.md
 ```
 
