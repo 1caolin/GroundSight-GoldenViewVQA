@@ -2,7 +2,7 @@
 
 **GroundSight at GroundLM 2026 Shared Tasks: GoldenViewVQA**
 
-This repository contains the system implementation, final predictions, intermediate Stage 3 corrections, method overview, and system paper for our submission to [GoldenViewVQA](https://groundlm.github.io/grouplm_emnlp2026/shared-tasks.html#goldenviewvqa), Shared Task 1 at the GroundLM 2026 Workshop co-located with EMNLP 2026.
+This repository contains the system implementation, final predictions, intermediate Stage 3 corrections, and method overview for our submission to [GoldenViewVQA](https://groundlm.github.io/grouplm_emnlp2026/shared-tasks.html#goldenviewvqa), Shared Task 1 at the GroundLM 2026 Workshop co-located with EMNLP 2026.
 
 CoVeR-VQA is a training-free, four-stage verification and correction framework for grounded multi-view visual question answering. Given six synchronized NuScenes camera views, a question, and four answer choices, the system jointly predicts:
 
@@ -15,7 +15,6 @@ The primary task metric is **Joint Accuracy**: a prediction is correct only when
 - [GoldenViewVQA dataset](https://huggingface.co/datasets/YimuWang/GoldenViewVQA)
 - [Dataset schema](https://huggingface.co/datasets/YimuWang/GoldenViewVQA/blob/main/docs/schema.md)
 - [Official evaluator](https://huggingface.co/datasets/YimuWang/GoldenViewVQA/blob/main/scripts/evaluate.py)
-- [System paper](CoVeR-VQA.pdf)
 
 ## Results
 
@@ -26,14 +25,16 @@ Results below are from the official GoldenViewVQA test set of 59 questions.
 | Organizer baseline | 20.34 | 23.73 | 77.97 | 16.67 |
 | Qwen3-VL-8B zero-shot | 66.10 | 88.14 | 71.19 | 49.88 |
 | GPT-5.6 zero-shot (Stage 1) | 71.19 | 91.53 | 74.58 | 65.82 |
+| GPT-5.6 view review (ablation) | 72.88 | 91.53 | 77.97 | 64.13 |
 | Gemini view review (Stage 2) | 74.58 | 91.53 | 79.66 | 54.11 |
 | Claude joint review (Stage 3) | 79.66 | 93.22 | 83.05 | 54.83 |
-| **CoVeR-VQA pipeline (Stage 4)** | **81.36** | **94.92** | **83.05** | **54.83** |
-| **Final submission** | **84.75** | **96.61** | **86.44** | **63.53** |
+| Cross-split group verification (Stage 4) | 84.75 | 94.92 | 86.44 | 65.94 |
+| **CoVeR-VQA pipeline** | **84.75** | **94.92** | **86.44** | **65.94** |
+| **Final submission** | **88.14** | **96.61** | **89.83** | **74.64** |
 
-The reproducible four-stage pipeline improves Joint Accuracy from 71.19% to 81.36%, a gain of **10.17 percentage points** over the GPT-5.6 zero-shot baseline. The final submitted run reaches **84.75% Joint Accuracy** after two additional evaluator-informed, instance-level post-hoc corrections. Because those two corrections are not a generalizable inference component, we report the pipeline and final-submission results separately.
+The reproducible four-stage pipeline improves Joint Accuracy from 71.19% to 84.75%, a gain of **13.56 percentage points** over the GPT-5.6 zero-shot baseline. It reaches 94.92% Answer Accuracy and 86.44% View Accuracy. The final submitted run reaches **88.14% Joint Accuracy** after two additional evaluator-informed, instance-level post-hoc corrections. Because those two corrections are not a generalizable inference component, we report the pipeline and final-submission results separately.
 
-The final submission contains 50/59 jointly correct predictions. Of the nine remaining errors, seven have the correct answer but an incorrect supporting view, one has a view-correct/answer-incorrect prediction, and one is incorrect in both components.
+The final submission contains 52/59 jointly correct predictions. Of the seven remaining errors, five have the correct answer but an incorrect supporting view, one has a view-correct/answer-incorrect prediction, and one is incorrect in both components. Supporting-view localization therefore remains the dominant source of residual error.
 
 ## Method
 
@@ -44,7 +45,7 @@ CoVeR-VQA progressively targets different error sources:
 1. **Zero-shot joint prediction — GPT-5.6.** All six camera views are provided at once. The model jointly predicts an answer and its supporting view.
 2. **View-specific verification — Gemini-3.6-Flash.** The Stage 1 answer is frozen while Gemini compares all views and may correct only the evidence source.
 3. **Prior-guided confidence-aware joint verification — Claude-Opus-5.** Claude rechecks the answer and view together. Two audit passes are aggregated, and the Stage 2 evaluator distribution (44 correct, 10 view-only errors, 3 answer-only errors, and 2 errors in both components) is used as a collection-level prior rather than as per-instance ground truth. A correction is applied only when the estimated probability that the current answer-view pair is jointly correct is at most 0.5.
-4. **Group-level prior verification — Claude-Opus-5.** Questions sharing a base query ID and the same six-view scene are grouped. Their question stems produce a soft semantic prior that is checked against the images before conservative residual corrections are applied.
+4. **Cross-split group-level prior verification — GPT-5.6.** Validation and test questions sharing a base query ID and the same synchronized six-view observation form candidate groups. A text-only semantic filter separates unrelated questions and discards singletons. GPT-5.6 then jointly re-evaluates each retained test subgroup using its textual prior, Stage 3 predictions, and any related validation answer/view annotations as a soft reference.
 
 The pipeline is entirely inference-time: it uses no task-specific fine-tuning and no additional labeled training set.
 
@@ -56,7 +57,7 @@ The pipeline is entirely inference-time: it uses no task-specific fine-tuning an
 │   ├── stage1_gpt.py             # Zero-shot joint answer/view prediction
 │   ├── stage2_gemini.py          # View-only reranking with the answer frozen
 │   ├── stage3-claude.py          # Prior-guided joint audit and correction
-│   └── stage4_claude.py          # Same-scene group-prior verification
+│   └── stage4_gpt.py             # Cross-split semantic group verification
 ├── result/
 │   ├── best.jsonl                # Final submission: 59 canonical predictions
 │   └── claude_stage3_selected.jsonl
@@ -77,6 +78,8 @@ By default, the scripts expect the following external layout:
 <PROJECT_ROOT>/
 ├── datasets/GoldenViewVQA/
 │   └── data/
+│       ├── eval_inputs.jsonl
+│       ├── eval.jsonl            # Public validation answer/view annotations
 │       ├── test_inputs.jsonl
 │       └── nuscenes/             # NuScenes files referenced by the JSONL
 └── outputs/test/                 # Generated stage outputs and raw audit logs
@@ -105,9 +108,9 @@ Do not commit API credentials. The released files contain placeholder keys only.
 
 - `stage1_gpt.py` stores `PROJECT_ROOT`, `API_KEY`, and `BASE_URL` as constants near the top of the file; set them locally before running.
 - `stage2_gemini.py` and `stage3-claude.py` accept path/model configuration through environment variables but currently contain a local `sk-` API-key placeholder in `build_client()`; replace it locally or change it to read `OPENAI_API_KEY`.
-- `stage4_claude.py` reads `OPENAI_API_KEY` and `OPENAI_BASE_URL` directly from the environment.
+- `stage4_gpt.py` reads `OPENAI_API_KEY` and the optional `OPENAI_BASE_URL` directly from the environment.
 
-Stages 2–4 support environment-variable overrides including `PROJECT_ROOT`, `INPUT_FILE`, `NUSCENES_ROOT`, `OUTPUT_DIR`, `MODEL_NAME`, `MAX_SAMPLES`, and `RESUME`. Stage-specific input and output paths can also be overridden; see the configuration block at the top of each script.
+Stages 2–4 support environment-variable overrides including `PROJECT_ROOT`, `NUSCENES_ROOT`, `OUTPUT_DIR`, `MODEL_NAME`, and `RESUME`. Stage 4 additionally accepts `VAL_INPUT_FILE`, `VAL_LABEL_FILE`, `TEST_INPUT_FILE`, and `MAX_GROUPS` (`MAX_SAMPLES` remains a compatibility alias). Stage-specific input and output paths can also be overridden; see the configuration block at the top of each script.
 
 ## Running the Pipeline
 
@@ -130,20 +133,20 @@ python code/stage2_gemini.py
 BASELINE_FILE="$OUTPUT_DIR/gemini36_view_rerank_test.jsonl" \
 python code/stage3-claude.py
 
-# Stage 4: verify grouped, same-scene questions using a soft group prior.
+# Stage 4: semantically filter cross-split scene groups and verify them jointly.
 STAGE3_FILE="$OUTPUT_DIR/claude_stage3_final_test.jsonl" \
-python code/stage4_claude.py
+python code/stage4_gpt.py
 ```
 
 Useful execution controls include:
 
-- `MAX_SAMPLES=<n>` for a partial smoke test;
+- `MAX_SAMPLES=<n>` for partial smoke tests in Stages 1–3;
+- `MAX_GROUPS=<n>` for a partial Stage 4 candidate-group run;
 - `RESUME=true` to reuse completed JSONL records;
-- `NUM_AUDIT_PASSES` for Stage 3 (default: 2);
-- `NUM_VERIFY_PASSES` for Stage 4 (default: 2); and
-- `CORRECT_THRESHOLD` for Stage 4 (default: 0.5).
+- `NUM_AUDIT_PASSES` for Stage 3 (default: 2); and
+- `REGENERATE_SEMANTIC_GROUPS=true` or `REGENERATE_GROUP_AUDITS=true` to refresh the corresponding Stage 4 cache.
 
-Before a full run, test one or two samples with `MAX_SAMPLES` and inspect the raw output files. API behavior, availability, pricing, and model snapshots depend on the endpoint provider.
+Before a full run, test one or two samples/groups and inspect the raw output files. API behavior, availability, pricing, and model snapshots depend on the endpoint provider.
 
 
 
@@ -152,7 +155,7 @@ Before a full run, test one or two samples with `MAX_SAMPLES` and inspect the ra
 - The system is training-free but requires access to the three configured multimodal model deployments.
 - Multimodal API outputs may vary with model snapshots and provider-side inference settings.
 - Stage 3 uses aggregate statistics returned by the official evaluator for the complete Stage 2 submission; it does not use instance-level test labels.
-- Stage 4 assumes that questions with the same base ID share exactly the same six-view scene and validates this condition before constructing a group prior.
+- Stage 4 merges validation and test questions, keys candidate groups by both the `sfall_XXXX` base ID and the exact six-view observation signature, and uses only question stems during semantic filtering. Validation annotations are exposed only during the later joint visual verification call.
 - The two final post-hoc corrections are included in `result/best.jsonl` but are not part of the general four-stage pipeline.
 
 

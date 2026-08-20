@@ -20,7 +20,7 @@
 {"question_id": "sfall_0044_intent_prediction", "predicted_view": "CAM_FRONT", "predicted_answer_id": "B"}
 {"question_id": "sfall_0045_counterfactual", "predicted_view": "CAM_FRONT", "predicted_answer_id": "C"}
 {"question_id": "sfall_0052_causality", "predicted_view": "CAM_FRONT", "predicted_answer_id": "A"}
-{"question_id": "sfall_0057_intent_prediction", "predicted_view": "CAM_FRONT", "predicted_answer_id": "B"}
+{"question_id": "sfall_0057_intent_prediction", "predicted_view": "CAM_FRONT_LEFT", "predicted_answer_id": "B"}
 {"question_id": "sfall_0061_intent_prediction", "predicted_view": "NONE_OF_THE_ABOVE", "predicted_answer_id": "C"}
 {"question_id": "sfall_0063_causality", "predicted_view": "CAM_FRONT", "predicted_answer_id": "C"}
 {"question_id": "sfall_0063_counterfactual", "predicted_view": "CAM_FRONT", "predicted_answer_id": "D"}
@@ -48,7 +48,7 @@
 {"question_id": "sfall_0213_causality", "predicted_view": "CAM_FRONT", "predicted_answer_id": "B"}
 {"question_id": "sfall_0224_causality", "predicted_view": "CAM_FRONT", "predicted_answer_id": "C"}
 {"question_id": "sfall_0224_counterfactual", "predicted_view": "CAM_FRONT", "predicted_answer_id": "C"}
-{"question_id": "sfall_0231_intent_prediction", "predicted_view": "CAM_FRONT", "predicted_answer_id": "B"}
+{"question_id": "sfall_0231_intent_prediction", "predicted_view": "CAM_FRONT_RIGHT", "predicted_answer_id": "B"}
 {"question_id": "sfall_0234_causality", "predicted_view": "CAM_FRONT", "predicted_answer_id": "C"}
 {"question_id": "sfall_0238_counterfactual", "predicted_view": "CAM_FRONT", "predicted_answer_id": "B"}
 {"question_id": "sfall_0238_intent_prediction", "predicted_view": "CAM_FRONT", "predicted_answer_id": "D"}
